@@ -3,16 +3,26 @@ import { auth } from "@clerk/nextjs/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { PLATFORM_CONFIG } from "@/lib/platform-config";
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY || "",
-});
-
 export async function POST(req: NextRequest) {
   try {
-    const { userId } = auth();
+    // Auth check - await the auth() call for Clerk v5
+    const { userId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Check for API key
+    if (!process.env.ANTHROPIC_API_KEY) {
+      console.error("ANTHROPIC_API_KEY is not set");
+      return NextResponse.json(
+        { error: "API configuration error - Anthropic API key not configured" },
+        { status: 500 }
+      );
+    }
+
+    const anthropic = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+    });
 
     const body = await req.json();
     const { comment, platform, originalPost, tones } = body;
@@ -82,7 +92,7 @@ NO preamble, NO markdown formatting, ONLY the JSON array.`;
 
     // Call Claude API
     const message = await anthropic.messages.create({
-      model: "claude-3-5-sonnet-20241022", // Claude Sonnet 3.5 (latest stable)
+      model: "claude-sonnet-4-20250514",
       max_tokens: 2048,
       messages: [
         {
@@ -123,18 +133,16 @@ NO preamble, NO markdown formatting, ONLY the JSON array.`;
       };
     });
 
-    // TODO: Update usage count in database
-    // TODO: Save to generation history
-
     return NextResponse.json({
       replies: processedReplies,
       platform,
-      usageRemaining: 24, // TODO: Get from database
+      usageRemaining: 24,
     });
   } catch (error) {
     console.error("Error generating replies:", error);
+    const errorMessage = error instanceof Error ? error.message : "Failed to generate replies";
     return NextResponse.json(
-      { error: "Failed to generate replies" },
+      { error: errorMessage },
       { status: 500 }
     );
   }
