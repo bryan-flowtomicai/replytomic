@@ -67,8 +67,8 @@ export default function Home() {
             transition={{ duration: 0.6 }}
             className="text-center"
           >
-            <div className="inline-block mb-6 px-4 py-2 rounded-full border border-white/20 bg-white/5 backdrop-blur-sm">
-              <span className="text-sm text-gray-400">AI-Powered Social Media Replies</span>
+            <div className="inline-block mb-6 px-4 py-2 rounded-full border border-white/30 bg-white/10 backdrop-blur-sm">
+              <span className="text-sm text-gray-300">AI-Powered Social Media Replies</span>
             </div>
             
             <h1 className="text-6xl md:text-8xl font-bold mb-6 leading-tight">
@@ -116,26 +116,26 @@ export default function Home() {
                 </Button>
               </Link>
               <Link href="/dashboard">
-                <Button size="lg" variant="outline" className="border-white/20 text-white hover:bg-white/5 text-lg px-8 py-6">
+                <Button size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10 hover:border-white/50 text-lg px-8 py-6 bg-transparent">
                   Try Demo
                 </Button>
               </Link>
             </div>
 
             {/* Social Proof */}
-            <div className="flex items-center justify-center gap-6 text-sm text-gray-500">
+            <div className="flex items-center justify-center gap-6 text-sm text-gray-300">
               <div className="flex items-center gap-2">
                 <div className="flex -space-x-2">
                   {[1, 2, 3].map((i) => (
                     <div key={i} className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-400 to-blue-400 border-2 border-black" />
                   ))}
                 </div>
-                <span>500+ creators</span>
+                <span className="text-white">500+ creators</span>
               </div>
-              <div>•</div>
-              <div>Save 10+ hours/week</div>
-              <div>•</div>
-              <div>7 platforms supported</div>
+              <div className="text-gray-500">•</div>
+              <div className="text-white">Save 10+ hours/week</div>
+              <div className="text-gray-500">•</div>
+              <div className="text-white">7 platforms supported</div>
             </div>
           </motion.div>
         </div>
@@ -343,7 +343,7 @@ export default function Home() {
                 </li>
               </ul>
               <Link href="/sign-up">
-                <Button className="w-full" variant="outline">
+                <Button className="w-full border-white/30 text-white hover:bg-white/10 hover:border-white/50 bg-transparent" variant="outline">
                   Get Started
                 </Button>
               </Link>
@@ -408,19 +408,19 @@ export default function Home() {
               <ul className="space-y-3 mb-8">
                 <li className="flex items-center gap-2">
                   <Check className="w-5 h-5 text-gray-500" />
-                  <span className="text-gray-500">25 replies/month</span>
+                  <span className="text-gray-300">25 replies/month</span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <Check className="w-5 h-5 text-gray-500" />
-                  <span className="text-gray-500">3 platforms</span>
+                  <Check className="w-5 h-5 text-gray-400" />
+                  <span className="text-gray-300">3 platforms</span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <Check className="w-5 h-5 text-gray-500" />
-                  <span className="text-gray-500">Basic tones</span>
+                  <Check className="w-5 h-5 text-gray-400" />
+                  <span className="text-gray-300">Basic tones</span>
                 </li>
               </ul>
               <Link href="/sign-up">
-                <Button className="w-full" variant="outline">
+                <Button className="w-full border-white/30 text-white hover:bg-white/10 hover:border-white/50 bg-transparent" variant="outline">
                   Try Free
                 </Button>
               </Link>
