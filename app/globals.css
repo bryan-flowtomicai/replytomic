@@ -101,3 +101,30 @@ textarea {
 textarea::placeholder {
   color: rgb(156, 163, 175) !important; /* gray-400 */
 }
+
+/* Fix text selection color - make selected text visible */
+::selection {
+  background-color: rgba(59, 130, 246, 0.5) !important; /* blue-500 with opacity */
+  color: white !important;
+}
+
+::-moz-selection {
+  background-color: rgba(59, 130, 246, 0.5) !important;
+  color: white !important;
+}
+
+/* Fix focus states for form elements */
+textarea:focus,
+input:focus,
+select:focus {
+  color: white !important;
+  background-color: rgba(0, 0, 0, 0.7) !important;
+  outline: 2px solid rgba(59, 130, 246, 0.5) !important;
+  outline-offset: 2px !important;
+}
+
+/* Ensure all text in form elements is white when typing */
+textarea:not(:placeholder-shown),
+input:not(:placeholder-shown) {
+  color: white !important;
+}
