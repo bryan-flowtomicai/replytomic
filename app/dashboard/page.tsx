@@ -338,7 +338,7 @@ export default function DashboardPage() {
             {tier !== 'free' ? (
               <button
                 onClick={handleManageBilling}
-                className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border border-blue-500/30"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border border-blue-500/30"
               >
                 <Crown className="w-4 h-4 text-blue-400" />
                 <span className="text-sm text-blue-300 font-medium">Pro</span>
@@ -346,10 +346,11 @@ export default function DashboardPage() {
             ) : (
               <button
                 onClick={() => setShowUpgrade(true)}
-                className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-sm font-medium hover:opacity-90"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-sm font-semibold shadow-lg shadow-blue-500/40" style={{ background: 'linear-gradient(to right, #2563eb, #06b6d4)' }}
               >
                 <Zap className="w-4 h-4" />
-                Upgrade
+<span className="hidden sm:inline">Upgrade</span>
+                <span className="sm:hidden">Pro</span>
               </button>
             )}
             {/* Usage Badge */}
