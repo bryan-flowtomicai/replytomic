@@ -2,14 +2,14 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useUser, useClerk } from "@clerk/nextjs";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { PLATFORM_CONFIG, TONE_OPTIONS } from "@/lib/platform-config";
 import { FaYoutube, FaInstagram, FaTwitter, FaLinkedin, FaFacebook, FaReddit } from "react-icons/fa";
 import { SiTiktok } from "react-icons/si";
 import { FaDiscord } from "react-icons/fa6";
-import { Copy, Loader2, LogOut, Sparkles, Zap, Check, ChevronDown, ChevronUp, RotateCcw, History, X, AlertTriangle } from "lucide-react";
+import { Copy, Loader2, LogOut, Sparkles, Zap, Check, ChevronDown, ChevronUp, RotateCcw, History, X, AlertTriangle, Crown, CreditCard } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const PLATFORM_ICONS: Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>> = {
@@ -66,6 +66,7 @@ export default function DashboardPage() {
   const { user } = useUser();
   const { signOut } = useClerk();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const resultsRef = useRef<HTMLDivElement>(null);
   
   const [platform, setPlatform] = useState<string>("youtube");
@@ -79,6 +80,7 @@ export default function DashboardPage() {
   const [inputCollapsed, setInputCollapsed] = useState(false);
   const [showContext, setShowContext] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showUpgrade, setShowUpgrade] = useState(false);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [usage, setUsage] = useState<UsageData | null>(null);
@@ -86,9 +88,21 @@ export default function DashboardPage() {
   const [tier, setTier] = useState<string>("free");
   const [limitReached, setLimitReached] = useState(false);
   const [currentGenerationId, setCurrentGenerationId] = useState<string | null>(null);
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
 
   const platformConfig = PLATFORM_CONFIG[platform] || PLATFORM_CONFIG.youtube;
   const PlatformIcon = PLATFORM_ICONS[platform] || FaYoutube;
+
+  // Check for upgrade success
+  useEffect(() => {
+    if (searchParams.get('upgraded') === 'true') {
+      // Refresh usage to get new tier
+      fetchUsage();
+      alert('🎉 Welcome to Pro! You now have unlimited replies.');
+      // Clear the query param
+      router.replace('/dashboard');
+    }
+  }, [searchParams]);
 
   // Fetch usage data on mount
   useEffect(() => {
@@ -116,8 +130,6 @@ export default function DashboardPage() {
       if (res.ok) {
         const data = await res.json();
         setHistory(data.history || []);
-      } else {
-        console.error("History fetch failed:", await res.text());
       }
     } catch (err) {
       console.error("Error fetching history:", err);
@@ -135,7 +147,7 @@ export default function DashboardPage() {
     }
   }, [loading]);
 
-  // Keyboard shortcut: Cmd/Ctrl + Enter to generate
+  // Keyboard shortcut
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
@@ -185,6 +197,7 @@ export default function DashboardPage() {
       if (!response.ok) {
         if (data.limitReached) {
           setLimitReached(true);
+          setShowUpgrade(true);
           return;
         }
         throw new Error(data.error || "Failed to generate replies");
@@ -209,8 +222,7 @@ export default function DashboardPage() {
       }, 100);
     } catch (error) {
       console.error("Error generating replies:", error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to generate replies";
-      alert(errorMessage);
+      alert(error instanceof Error ? error.message : "Failed to generate replies");
     } finally {
       setLoading(false);
     }
@@ -220,16 +232,12 @@ export default function DashboardPage() {
     await navigator.clipboard.writeText(text);
     setCopiedId(replyId);
     
-    // Track the selected reply
     if (currentGenerationId) {
       try {
         await fetch("/api/history", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            generationId: currentGenerationId,
-            replyId: replyId,
-          }),
+          body: JSON.stringify({ generationId: currentGenerationId, replyId }),
         });
       } catch (err) {
         console.error("Error tracking reply selection:", err);
@@ -259,6 +267,49 @@ export default function DashboardPage() {
     setShowHistory(false);
   };
 
+  const handleUpgrade = async (selectedTier: 'creator_pro' | 'agency') => {
+    setCheckoutLoading(selectedTier);
+    try {
+      const res = await fetch('/api/stripe/create-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tier: selectedTier }),
+      });
+      
+      const data = await res.json();
+      
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert(data.error || 'Failed to start checkout');
+      }
+    } catch (err) {
+      console.error('Checkout error:', err);
+      alert('Failed to start checkout. Please try again.');
+    } finally {
+      setCheckoutLoading(null);
+    }
+  };
+
+  const handleManageBilling = async () => {
+    try {
+      const res = await fetch('/api/stripe/create-portal', {
+        method: 'POST',
+      });
+      
+      const data = await res.json();
+      
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert(data.error || 'Failed to open billing portal');
+      }
+    } catch (err) {
+      console.error('Portal error:', err);
+      alert('Failed to open billing portal');
+    }
+  };
+
   const formatTimeAgo = (dateStr: string) => {
     const date = new Date(dateStr);
     const now = new Date();
@@ -283,31 +334,157 @@ export default function DashboardPage() {
             ReplyTomic
           </div>
           <div className="flex items-center gap-2">
+            {/* Pro Badge or Upgrade */}
+            {tier !== 'free' ? (
+              <button
+                onClick={handleManageBilling}
+                className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border border-blue-500/30"
+              >
+                <Crown className="w-4 h-4 text-blue-400" />
+                <span className="text-sm text-blue-300 font-medium">Pro</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowUpgrade(true)}
+                className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-sm font-medium hover:opacity-90"
+              >
+                <Zap className="w-4 h-4" />
+                Upgrade
+              </button>
+            )}
             {/* Usage Badge */}
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">
               <Zap className="w-4 h-4 text-blue-400" />
               <span className="text-sm text-white">
                 {usage?.remaining === -1 ? "∞" : usage?.remaining ?? "..."} 
                 <span className="text-gray-400">/{usage?.limit === -1 ? "∞" : usage?.limit ?? 25}</span>
               </span>
             </div>
-            {/* History Button */}
+            {/* History */}
             <button
               onClick={() => { setShowHistory(true); fetchHistory(); }}
               className="flex items-center gap-2 text-gray-400 hover:text-white px-3 py-2 rounded-lg hover:bg-white/10 transition-all"
             >
               <History className="h-5 w-5" />
-              <span className="hidden sm:inline">History</span>
             </button>
             <button
               onClick={handleSignOut}
-              className="flex items-center gap-2 text-gray-400 hover:text-white px-3 py-2 rounded-lg hover:bg-white/10 transition-all"
+              className="text-gray-400 hover:text-white px-2 py-2 rounded-lg hover:bg-white/10 transition-all"
             >
               <LogOut className="h-5 w-5" />
             </button>
           </div>
         </div>
       </header>
+
+      {/* Upgrade Modal */}
+      <AnimatePresence>
+        {showUpgrade && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/80 z-50"
+              onClick={() => setShowUpgrade(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="fixed inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:max-w-lg md:w-full bg-black border border-white/10 rounded-2xl z-50 overflow-hidden"
+            >
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-bold text-white">Upgrade to Pro</h2>
+                  <button onClick={() => setShowUpgrade(false)} className="p-2 hover:bg-white/10 rounded-lg">
+                    <X className="w-5 h-5 text-gray-400" />
+                  </button>
+                </div>
+
+                {limitReached && (
+                  <div className="mb-6 p-4 rounded-xl bg-orange-500/10 border border-orange-500/30">
+                    <p className="text-orange-300 text-sm">
+                      You&apos;ve used all 25 free replies this month. Upgrade to continue!
+                    </p>
+                  </div>
+                )}
+
+                <div className="space-y-4">
+                  {/* Creator Pro */}
+                  <button
+                    onClick={() => handleUpgrade('creator_pro')}
+                    disabled={checkoutLoading !== null}
+                    className="w-full p-5 rounded-xl border-2 border-blue-500 bg-blue-500/10 hover:bg-blue-500/20 transition-all text-left relative"
+                  >
+                    <div className="absolute -top-3 left-4 px-2 py-0.5 bg-blue-500 text-white text-xs font-bold rounded">
+                      MOST POPULAR
+                    </div>
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-xl font-bold text-white">Creator Pro</h3>
+                      <div className="text-right">
+                        <span className="text-3xl font-bold text-white">$29</span>
+                        <span className="text-gray-400">/mo</span>
+                      </div>
+                    </div>
+                    <ul className="space-y-2 text-gray-300 text-sm">
+                      <li className="flex items-center gap-2">
+                        <Check className="w-4 h-4 text-blue-400" /> Unlimited replies
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Check className="w-4 h-4 text-blue-400" /> All 8 platforms
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Check className="w-4 h-4 text-blue-400" /> Full history & analytics
+                      </li>
+                    </ul>
+                    {checkoutLoading === 'creator_pro' && (
+                      <div className="absolute inset-0 bg-black/50 rounded-xl flex items-center justify-center">
+                        <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
+                      </div>
+                    )}
+                  </button>
+
+                  {/* Agency */}
+                  <button
+                    onClick={() => handleUpgrade('agency')}
+                    disabled={checkoutLoading !== null}
+                    className="w-full p-5 rounded-xl border border-white/20 bg-white/5 hover:bg-white/10 transition-all text-left relative"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-xl font-bold text-white">Agency</h3>
+                      <div className="text-right">
+                        <span className="text-3xl font-bold text-white">$99</span>
+                        <span className="text-gray-400">/mo</span>
+                      </div>
+                    </div>
+                    <ul className="space-y-2 text-gray-300 text-sm">
+                      <li className="flex items-center gap-2">
+                        <Check className="w-4 h-4 text-green-400" /> Everything in Pro
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Check className="w-4 h-4 text-green-400" /> 10 team seats
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Check className="w-4 h-4 text-green-400" /> Priority support
+                      </li>
+                    </ul>
+                    {checkoutLoading === 'agency' && (
+                      <div className="absolute inset-0 bg-black/50 rounded-xl flex items-center justify-center">
+                        <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
+                      </div>
+                    )}
+                  </button>
+                </div>
+
+                <p className="mt-6 text-center text-gray-500 text-sm">
+                  Cancel anytime • 30-day money-back guarantee
+                </p>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* History Sidebar */}
       <AnimatePresence>
@@ -342,7 +519,6 @@ export default function DashboardPage() {
                   <div className="text-center py-12 text-gray-400">
                     <History className="w-12 h-12 mx-auto mb-3 opacity-50" />
                     <p>No history yet</p>
-                    <p className="text-sm mt-1">Generate some replies to see them here</p>
                   </div>
                 ) : (
                   history.map((item) => {
@@ -366,29 +542,13 @@ export default function DashboardPage() {
                             <span className="text-sm text-gray-400">{formatTimeAgo(item.createdAt)}</span>
                           </div>
                           {selectedReply && (
-                            <span className="text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-400">
-                              Used
-                            </span>
+                            <span className="text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-400">Used</span>
                           )}
                         </div>
                         <p className="text-white text-sm line-clamp-2 mb-2">{item.comment}</p>
                         {selectedReply && (
-                          <p className="text-gray-400 text-xs line-clamp-1 italic">
-                            → {selectedReply.text}
-                          </p>
+                          <p className="text-gray-400 text-xs line-clamp-1 italic">→ {selectedReply.text}</p>
                         )}
-                        <div className="flex gap-1 mt-2">
-                          {item.tones?.slice(0, 3).map(tone => (
-                            <span key={tone} className="px-2 py-0.5 rounded text-xs bg-white/10 text-gray-300">
-                              {tone}
-                            </span>
-                          ))}
-                          {item.replies?.length > 0 && (
-                            <span className="px-2 py-0.5 rounded text-xs bg-blue-500/20 text-blue-300">
-                              {item.replies.length} replies
-                            </span>
-                          )}
-                        </div>
                       </button>
                     );
                   })
@@ -422,30 +582,6 @@ export default function DashboardPage() {
                 {usage?.remaining === -1 ? "∞" : usage?.remaining}
               </p>
               <p className="text-xs text-gray-400">Remaining</p>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Limit Reached Warning */}
-        {limitReached && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="p-5 rounded-2xl bg-orange-500/10 border border-orange-500/30"
-          >
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
-                <AlertTriangle className="w-6 h-6 text-orange-400" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-white mb-1">Monthly Limit Reached</h3>
-                <p className="text-gray-300 mb-4">
-                  You&apos;ve used all {usage?.limit} free replies this month. Upgrade to Pro for unlimited replies!
-                </p>
-                <button className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-medium hover:opacity-90 transition-all">
-                  Upgrade to Pro - $29/mo
-                </button>
-              </div>
             </div>
           </motion.div>
         )}
@@ -580,13 +716,13 @@ export default function DashboardPage() {
               {/* Generate Button */}
               <button
                 onClick={handleGenerate}
-                disabled={loading || !comment.trim() || selectedTones.length === 0 || limitReached}
+                disabled={loading || !comment.trim() || selectedTones.length === 0}
                 className="w-full h-14 rounded-xl font-bold text-lg text-white transition-all duration-300 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
                 style={{
-                  background: loading || !comment.trim() || selectedTones.length === 0 || limitReached
+                  background: loading || !comment.trim() || selectedTones.length === 0
                     ? 'linear-gradient(to right, #1e40af, #0e7490)'
                     : 'linear-gradient(to right, #2563eb, #06b6d4)',
-                  boxShadow: loading || !comment.trim() || selectedTones.length === 0 || limitReached
+                  boxShadow: loading || !comment.trim() || selectedTones.length === 0
                     ? 'none'
                     : '0 4px 20px rgba(59, 130, 246, 0.4)',
                 }}
@@ -625,18 +761,17 @@ export default function DashboardPage() {
                   <div className="flex gap-2">
                     <button
                       onClick={handleGenerate}
-                      disabled={loading || limitReached}
+                      disabled={loading}
                       className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 text-white hover:bg-white/20 transition-all text-base font-medium disabled:opacity-50"
                     >
                       <RotateCcw className="w-5 h-5" />
-                      <span className="hidden sm:inline">Regenerate</span>
                     </button>
                     <button
                       onClick={startNewReply}
                       className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500 text-white hover:bg-blue-600 transition-all text-base font-medium"
                     >
                       <Zap className="w-5 h-5" />
-                      <span className="hidden sm:inline">New</span>
+                      New
                     </button>
                   </div>
                 </div>
@@ -665,9 +800,7 @@ export default function DashboardPage() {
                         </span>
                       </div>
                       
-                      <p className="text-white text-lg leading-relaxed mb-4">
-                        {reply.text}
-                      </p>
+                      <p className="text-white text-lg leading-relaxed mb-4">{reply.text}</p>
                       
                       <button
                         onClick={() => copyToClipboard(reply.text, reply.id)}
@@ -680,7 +813,7 @@ export default function DashboardPage() {
                         {copiedId === reply.id ? (
                           <>
                             <Check className="w-5 h-5" />
-                            Copied to Clipboard!
+                            Copied!
                           </>
                         ) : (
                           <>
@@ -697,7 +830,7 @@ export default function DashboardPage() {
           </AnimatePresence>
 
           {/* Empty State */}
-          {!loading && replies.length === 0 && !limitReached && (
+          {!loading && replies.length === 0 && (
             <div className="text-center py-12">
               <div className="w-20 h-20 rounded-full bg-blue-500/10 flex items-center justify-center mx-auto mb-6">
                 <Sparkles className="w-10 h-10 text-blue-400" />
