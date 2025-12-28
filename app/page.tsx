@@ -30,7 +30,8 @@ export default function Home() {
     }, 30);
 
     return () => clearInterval(interval);
-  }, [demoReplyText]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="min-h-screen bg-black text-white overflow-hidden relative">
