@@ -1,22 +1,57 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { PLATFORM_CONFIG } from "@/lib/platform-config";
+import { 
+  getOrCreateUser, 
+  canUserGenerate, 
+  incrementUsage, 
+  saveGeneration,
+  updateAnalytics 
+} from "@/lib/db";
 
 export async function POST(req: NextRequest) {
   try {
-    // Auth check - await the auth() call for Clerk v5
-    const { userId } = await auth();
-    if (!userId) {
+    const { userId: clerkUserId } = await auth();
+    if (!clerkUserId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check for API key
     if (!process.env.ANTHROPIC_API_KEY) {
       console.error("ANTHROPIC_API_KEY is not set");
       return NextResponse.json(
         { error: "API configuration error - Anthropic API key not configured" },
         { status: 500 }
+      );
+    }
+
+    const clerkUser = await currentUser();
+    const { user, error: userError } = await getOrCreateUser(
+      clerkUserId,
+      clerkUser?.emailAddresses[0]?.emailAddress,
+      clerkUser?.firstName || clerkUser?.username || undefined
+    );
+
+    if (userError || !user) {
+      console.error("Error getting/creating user:", userError);
+      return NextResponse.json(
+        { error: "Failed to initialize user" },
+        { status: 500 }
+      );
+    }
+
+    const { canGenerate, remaining, limit } = await canUserGenerate(user.id, user.subscription_tier);
+    
+    if (!canGenerate) {
+      return NextResponse.json(
+        { 
+          error: "Monthly limit reached", 
+          limitReached: true,
+          limit,
+          tier: user.subscription_tier,
+          message: `You've used all ${limit} free replies this month. Upgrade to Pro for unlimited replies!`
+        },
+        { status: 403 }
       );
     }
 
@@ -42,7 +77,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Build the prompt
     const prompt = `You are an expert at crafting engaging social media replies for ${platformConfig.name}.
 
 ORIGINAL POST (for context):
@@ -90,7 +124,6 @@ Return ONLY a JSON array with this exact format:
 
 NO preamble, NO markdown formatting, ONLY the JSON array.`;
 
-    // Call Claude API
     const message = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514",
       max_tokens: 2048,
@@ -102,7 +135,6 @@ NO preamble, NO markdown formatting, ONLY the JSON array.`;
       ],
     });
 
-    // Parse response
     const content = message.content[0];
     if (content.type !== "text") {
       throw new Error("Unexpected response type");
@@ -110,7 +142,6 @@ NO preamble, NO markdown formatting, ONLY the JSON array.`;
 
     let replies;
     try {
-      // Extract JSON from response (remove markdown code blocks if present)
       const jsonText = content.text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
       replies = JSON.parse(jsonText);
     } catch (parseError) {
@@ -118,7 +149,6 @@ NO preamble, NO markdown formatting, ONLY the JSON array.`;
       throw new Error("Failed to parse AI response");
     }
 
-    // Validate and process replies
     const processedReplies = replies.map((reply: any, index: number) => {
       const text = reply.text || "";
       const length = text.length;
@@ -133,10 +163,26 @@ NO preamble, NO markdown formatting, ONLY the JSON array.`;
       };
     });
 
+    const repliesCount = processedReplies.length;
+    
+    Promise.all([
+      incrementUsage(user.id, platform, repliesCount),
+      saveGeneration(user.id, platform, comment, originalPost, tones || ["helpful"], processedReplies),
+      updateAnalytics(user.id, platform, tones || ["helpful"], repliesCount),
+    ]).catch(err => {
+      console.error("Error saving to database:", err);
+    });
+
+    const newRemaining = limit === -1 ? -1 : Math.max(0, remaining - repliesCount);
+
     return NextResponse.json({
       replies: processedReplies,
       platform,
-      usageRemaining: 24,
+      usage: {
+        remaining: newRemaining,
+        limit,
+        tier: user.subscription_tier,
+      },
     });
   } catch (error) {
     console.error("Error generating replies:", error);

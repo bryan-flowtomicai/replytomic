@@ -1,16 +1,15 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useUser, useClerk } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { PLATFORM_CONFIG, TONE_OPTIONS } from "@/lib/platform-config";
 import { FaYoutube, FaInstagram, FaTwitter, FaLinkedin, FaFacebook, FaReddit } from "react-icons/fa";
 import { SiTiktok } from "react-icons/si";
 import { FaDiscord } from "react-icons/fa6";
-import { Copy, Loader2, LogOut, Sparkles, Zap, Check, ChevronDown, ChevronUp, RotateCcw } from "lucide-react";
+import { Copy, Loader2, LogOut, Sparkles, Zap, Check, ChevronDown, ChevronUp, RotateCcw, History, Clock, X, AlertTriangle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const PLATFORM_ICONS: Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>> = {
@@ -30,6 +29,30 @@ interface Reply {
   text: string;
   length: number;
   withinLimit: boolean;
+}
+
+interface HistoryItem {
+  id: string;
+  platform: string;
+  comment: string;
+  originalPost: string | null;
+  tones: string[];
+  replies: Reply[];
+  createdAt: string;
+}
+
+interface UsageData {
+  thisMonth: number;
+  remaining: number;
+  limit: number;
+  platformsUsed: Record<string, number>;
+}
+
+interface StatsData {
+  totalGenerated: number;
+  timeSavedMinutes: number;
+  platformBreakdown: Record<string, number>;
+  favoriteTones: Record<string, number>;
 }
 
 const LOADING_MESSAGES = [
@@ -54,9 +77,50 @@ export default function DashboardPage() {
   const [loadingMessage, setLoadingMessage] = useState(LOADING_MESSAGES[0]);
   const [inputCollapsed, setInputCollapsed] = useState(false);
   const [showContext, setShowContext] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [usage, setUsage] = useState<UsageData | null>(null);
+  const [stats, setStats] = useState<StatsData | null>(null);
+  const [tier, setTier] = useState<string>("free");
+  const [limitReached, setLimitReached] = useState(false);
 
   const platformConfig = PLATFORM_CONFIG[platform] || PLATFORM_CONFIG.youtube;
   const PlatformIcon = PLATFORM_ICONS[platform] || FaYoutube;
+
+  // Fetch usage data on mount
+  useEffect(() => {
+    fetchUsage();
+  }, []);
+
+  const fetchUsage = async () => {
+    try {
+      const res = await fetch("/api/usage");
+      if (res.ok) {
+        const data = await res.json();
+        setUsage(data.usage);
+        setStats(data.stats);
+        setTier(data.user?.tier || "free");
+      }
+    } catch (err) {
+      console.error("Error fetching usage:", err);
+    }
+  };
+
+  const fetchHistory = async () => {
+    setHistoryLoading(true);
+    try {
+      const res = await fetch("/api/history?limit=20");
+      if (res.ok) {
+        const data = await res.json();
+        setHistory(data.history || []);
+      }
+    } catch (err) {
+      console.error("Error fetching history:", err);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (loading) {
@@ -66,6 +130,20 @@ export default function DashboardPage() {
       return () => clearInterval(interval);
     }
   }, [loading]);
+
+  // Keyboard shortcut: Cmd/Ctrl + Enter to generate
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+        e.preventDefault();
+        if (comment.trim() && selectedTones.length > 0 && !loading) {
+          handleGenerate();
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [comment, selectedTones, loading]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -83,6 +161,7 @@ export default function DashboardPage() {
 
     setLoading(true);
     setReplies([]);
+    setLimitReached(false);
 
     try {
       const response = await fetch("/api/generate-replies", {
@@ -96,16 +175,31 @@ export default function DashboardPage() {
         }),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to generate replies");
+        if (data.limitReached) {
+          setLimitReached(true);
+          return;
+        }
+        throw new Error(data.error || "Failed to generate replies");
       }
 
-      const data = await response.json();
       setReplies(data.replies || []);
       setInputCollapsed(true);
       
-      // Scroll to results on mobile
+      // Update usage from response
+      if (data.usage) {
+        setUsage(prev => prev ? {
+          ...prev,
+          remaining: data.usage.remaining,
+          thisMonth: prev.limit === -1 ? prev.thisMonth : prev.limit - data.usage.remaining,
+        } : null);
+      }
+      
+      // Refresh full usage data
+      fetchUsage();
+      
       setTimeout(() => {
         resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 100);
@@ -129,6 +223,32 @@ export default function DashboardPage() {
     setReplies([]);
     setComment("");
     setOriginalPost("");
+    setLimitReached(false);
+  };
+
+  const loadFromHistory = (item: HistoryItem) => {
+    setPlatform(item.platform);
+    setComment(item.comment);
+    setOriginalPost(item.originalPost || "");
+    setSelectedTones(item.tones || ["helpful"]);
+    setReplies(item.replies || []);
+    setInputCollapsed(true);
+    setShowHistory(false);
+  };
+
+  const formatTimeAgo = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
   };
 
   return (
@@ -139,24 +259,159 @@ export default function DashboardPage() {
           <div className="text-xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
             ReplyTomic
           </div>
-          <button
-            onClick={handleSignOut}
-            className="flex items-center gap-2 text-gray-400 hover:text-white px-3 py-2 rounded-lg hover:bg-white/10 transition-all"
-          >
-            <LogOut className="h-5 w-5" />
-            <span className="hidden sm:inline">Sign Out</span>
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Usage Badge */}
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">
+              <Zap className="w-4 h-4 text-blue-400" />
+              <span className="text-sm text-white">
+                {usage?.remaining === -1 ? "∞" : usage?.remaining ?? "..."} 
+                <span className="text-gray-400">/{usage?.limit === -1 ? "∞" : usage?.limit ?? 25}</span>
+              </span>
+            </div>
+            {/* History Button */}
+            <button
+              onClick={() => { setShowHistory(true); fetchHistory(); }}
+              className="flex items-center gap-2 text-gray-400 hover:text-white px-3 py-2 rounded-lg hover:bg-white/10 transition-all"
+            >
+              <History className="h-5 w-5" />
+              <span className="hidden sm:inline">History</span>
+            </button>
+            <button
+              onClick={handleSignOut}
+              className="flex items-center gap-2 text-gray-400 hover:text-white px-3 py-2 rounded-lg hover:bg-white/10 transition-all"
+            >
+              <LogOut className="h-5 w-5" />
+            </button>
+          </div>
         </div>
       </header>
 
+      {/* History Sidebar */}
+      <AnimatePresence>
+        {showHistory && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 z-50"
+              onClick={() => setShowHistory(false)}
+            />
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-black border-l border-white/10 z-50 overflow-hidden flex flex-col"
+            >
+              <div className="p-4 border-b border-white/10 flex items-center justify-between">
+                <h2 className="text-xl font-bold text-white">History</h2>
+                <button onClick={() => setShowHistory(false)} className="p-2 hover:bg-white/10 rounded-lg">
+                  <X className="w-5 h-5 text-gray-400" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                {historyLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
+                  </div>
+                ) : history.length === 0 ? (
+                  <div className="text-center py-12 text-gray-400">
+                    <History className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    <p>No history yet</p>
+                    <p className="text-sm mt-1">Generate some replies to see them here</p>
+                  </div>
+                ) : (
+                  history.map((item) => {
+                    const ItemIcon = PLATFORM_ICONS[item.platform] || FaYoutube;
+                    const itemConfig = PLATFORM_CONFIG[item.platform];
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => loadFromHistory(item)}
+                        className="w-full text-left p-4 rounded-xl bg-white/5 border border-white/10 hover:border-blue-500/30 hover:bg-white/10 transition-all"
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <span style={{ color: itemConfig?.color }}>
+                            <ItemIcon className="text-lg" />
+                          </span>
+                          <span className="text-sm text-gray-400">{formatTimeAgo(item.createdAt)}</span>
+                        </div>
+                        <p className="text-white text-sm line-clamp-2">{item.comment}</p>
+                        <div className="flex gap-1 mt-2">
+                          {item.tones?.slice(0, 3).map(tone => (
+                            <span key={tone} className="px-2 py-0.5 rounded text-xs bg-white/10 text-gray-300">
+                              {tone}
+                            </span>
+                          ))}
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
       <main className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-        {/* Input Section - Collapsible after generating */}
+        {/* Stats Bar */}
+        {stats && (stats.totalGenerated > 0) && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center justify-center gap-6 py-3 px-4 rounded-xl bg-white/5 border border-white/10"
+          >
+            <div className="text-center">
+              <p className="text-2xl font-bold text-white">{stats.totalGenerated}</p>
+              <p className="text-xs text-gray-400">Replies</p>
+            </div>
+            <div className="w-px h-8 bg-white/10" />
+            <div className="text-center">
+              <p className="text-2xl font-bold text-green-400">{stats.timeSavedMinutes}</p>
+              <p className="text-xs text-gray-400">Min Saved</p>
+            </div>
+            <div className="w-px h-8 bg-white/10" />
+            <div className="text-center">
+              <p className="text-2xl font-bold text-blue-400">
+                {usage?.remaining === -1 ? "∞" : usage?.remaining}
+              </p>
+              <p className="text-xs text-gray-400">Remaining</p>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Limit Reached Warning */}
+        {limitReached && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="p-5 rounded-2xl bg-orange-500/10 border border-orange-500/30"
+          >
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="w-6 h-6 text-orange-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white mb-1">Monthly Limit Reached</h3>
+                <p className="text-gray-300 mb-4">
+                  You&apos;ve used all {usage?.limit} free replies this month. Upgrade to Pro for unlimited replies!
+                </p>
+                <button className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-medium hover:opacity-90 transition-all">
+                  Upgrade to Pro - $29/mo
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Input Section */}
         <motion.div
           initial={false}
           animate={{ height: inputCollapsed ? "auto" : "auto" }}
           className="bg-white/5 rounded-2xl border border-white/10 overflow-hidden"
         >
-          {/* Collapsed Header */}
           {inputCollapsed && replies.length > 0 ? (
             <button
               onClick={() => setInputCollapsed(false)}
@@ -176,9 +431,7 @@ export default function DashboardPage() {
               <ChevronDown className="w-6 h-6 text-gray-400" />
             </button>
           ) : (
-            /* Expanded Input Form */
             <div className="p-5 space-y-5">
-              {/* Header with collapse button */}
               {replies.length > 0 && (
                 <button
                   onClick={() => setInputCollapsed(true)}
@@ -274,21 +527,22 @@ export default function DashboardPage() {
                   rows={4}
                   className="bg-black/50 border-white/20 text-white placeholder:text-gray-500 text-base rounded-xl p-4"
                 />
-                <p className="mt-2 text-sm text-gray-500">
-                  {comment.length} characters • Max reply: {platformConfig.maxLength}
-                </p>
+                <div className="flex justify-between mt-2 text-sm text-gray-500">
+                  <span>{comment.length} characters</span>
+                  <span className="hidden sm:block">⌘+Enter to generate</span>
+                </div>
               </div>
 
               {/* Generate Button */}
               <button
                 onClick={handleGenerate}
-                disabled={loading || !comment.trim() || selectedTones.length === 0}
+                disabled={loading || !comment.trim() || selectedTones.length === 0 || limitReached}
                 className="w-full h-14 rounded-xl font-bold text-lg text-white transition-all duration-300 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
                 style={{
-                  background: loading || !comment.trim() || selectedTones.length === 0
+                  background: loading || !comment.trim() || selectedTones.length === 0 || limitReached
                     ? 'linear-gradient(to right, #1e40af, #0e7490)'
                     : 'linear-gradient(to right, #2563eb, #06b6d4)',
-                  boxShadow: loading || !comment.trim() || selectedTones.length === 0
+                  boxShadow: loading || !comment.trim() || selectedTones.length === 0 || limitReached
                     ? 'none'
                     : '0 4px 20px rgba(59, 130, 246, 0.4)',
                 }}
@@ -319,7 +573,6 @@ export default function DashboardPage() {
                 exit={{ opacity: 0, y: -20 }}
                 className="space-y-4"
               >
-                {/* Results Header */}
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-bold text-white flex items-center gap-2">
                     <Sparkles className="w-6 h-6 text-blue-400" />
@@ -328,8 +581,8 @@ export default function DashboardPage() {
                   <div className="flex gap-2">
                     <button
                       onClick={handleGenerate}
-                      disabled={loading}
-                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 text-white hover:bg-white/20 transition-all text-base font-medium"
+                      disabled={loading || limitReached}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 text-white hover:bg-white/20 transition-all text-base font-medium disabled:opacity-50"
                     >
                       <RotateCcw className="w-5 h-5" />
                       <span className="hidden sm:inline">Regenerate</span>
@@ -344,7 +597,6 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {/* Reply Cards */}
                 <div className="space-y-4">
                   {replies.map((reply, index) => (
                     <motion.div
@@ -354,7 +606,6 @@ export default function DashboardPage() {
                       transition={{ delay: index * 0.1 }}
                       className="p-5 rounded-2xl bg-white/5 border border-white/10 hover:border-blue-500/30 transition-all"
                     >
-                      {/* Card Header */}
                       <div className="flex items-center justify-between mb-3">
                         <span className="px-3 py-1 rounded-lg bg-blue-500/20 text-blue-300 text-sm font-medium capitalize">
                           {reply.tone}
@@ -366,12 +617,10 @@ export default function DashboardPage() {
                         </span>
                       </div>
                       
-                      {/* Reply Text */}
                       <p className="text-white text-lg leading-relaxed mb-4">
                         {reply.text}
                       </p>
                       
-                      {/* Copy Button - Large & Touch-friendly */}
                       <button
                         onClick={() => copyToClipboard(reply.text, reply.id)}
                         className={`w-full h-12 rounded-xl font-medium text-base flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${
@@ -400,7 +649,7 @@ export default function DashboardPage() {
           </AnimatePresence>
 
           {/* Empty State */}
-          {!loading && replies.length === 0 && (
+          {!loading && replies.length === 0 && !limitReached && (
             <div className="text-center py-12">
               <div className="w-20 h-20 rounded-full bg-blue-500/10 flex items-center justify-center mx-auto mb-6">
                 <Sparkles className="w-10 h-10 text-blue-400" />
