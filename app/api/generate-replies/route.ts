@@ -165,19 +165,27 @@ NO preamble, NO markdown formatting, ONLY the JSON array.`;
 
     const repliesCount = processedReplies.length;
     
-    Promise.all([
-      incrementUsage(user.id, platform, repliesCount),
-      saveGeneration(user.id, platform, comment, originalPost, tones || ["helpful"], processedReplies),
-      updateAnalytics(user.id, platform, tones || ["helpful"], repliesCount),
-    ]).catch(err => {
+    // Save to database and get generation ID
+    let generationId: string | null = null;
+    
+    try {
+      const [, generationResult] = await Promise.all([
+        incrementUsage(user.id, platform, repliesCount),
+        saveGeneration(user.id, platform, comment, originalPost, tones || ["helpful"], processedReplies),
+        updateAnalytics(user.id, platform, tones || ["helpful"], repliesCount),
+      ]);
+      
+      generationId = generationResult.generation?.id || null;
+    } catch (err) {
       console.error("Error saving to database:", err);
-    });
+    }
 
     const newRemaining = limit === -1 ? -1 : Math.max(0, remaining - repliesCount);
 
     return NextResponse.json({
       replies: processedReplies,
       platform,
+      generationId,
       usage: {
         remaining: newRemaining,
         limit,

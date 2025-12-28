@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useUser, useClerk } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,7 +9,7 @@ import { PLATFORM_CONFIG, TONE_OPTIONS } from "@/lib/platform-config";
 import { FaYoutube, FaInstagram, FaTwitter, FaLinkedin, FaFacebook, FaReddit } from "react-icons/fa";
 import { SiTiktok } from "react-icons/si";
 import { FaDiscord } from "react-icons/fa6";
-import { Copy, Loader2, LogOut, Sparkles, Zap, Check, ChevronDown, ChevronUp, RotateCcw, History, Clock, X, AlertTriangle } from "lucide-react";
+import { Copy, Loader2, LogOut, Sparkles, Zap, Check, ChevronDown, ChevronUp, RotateCcw, History, X, AlertTriangle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const PLATFORM_ICONS: Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>> = {
@@ -38,6 +38,7 @@ interface HistoryItem {
   originalPost: string | null;
   tones: string[];
   replies: Reply[];
+  selectedReplyId: string | null;
   createdAt: string;
 }
 
@@ -84,6 +85,7 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<StatsData | null>(null);
   const [tier, setTier] = useState<string>("free");
   const [limitReached, setLimitReached] = useState(false);
+  const [currentGenerationId, setCurrentGenerationId] = useState<string | null>(null);
 
   const platformConfig = PLATFORM_CONFIG[platform] || PLATFORM_CONFIG.youtube;
   const PlatformIcon = PLATFORM_ICONS[platform] || FaYoutube;
@@ -114,6 +116,8 @@ export default function DashboardPage() {
       if (res.ok) {
         const data = await res.json();
         setHistory(data.history || []);
+      } else {
+        console.error("History fetch failed:", await res.text());
       }
     } catch (err) {
       console.error("Error fetching history:", err);
@@ -162,6 +166,7 @@ export default function DashboardPage() {
     setLoading(true);
     setReplies([]);
     setLimitReached(false);
+    setCurrentGenerationId(null);
 
     try {
       const response = await fetch("/api/generate-replies", {
@@ -186,9 +191,9 @@ export default function DashboardPage() {
       }
 
       setReplies(data.replies || []);
+      setCurrentGenerationId(data.generationId || null);
       setInputCollapsed(true);
       
-      // Update usage from response
       if (data.usage) {
         setUsage(prev => prev ? {
           ...prev,
@@ -197,7 +202,6 @@ export default function DashboardPage() {
         } : null);
       }
       
-      // Refresh full usage data
       fetchUsage();
       
       setTimeout(() => {
@@ -212,9 +216,26 @@ export default function DashboardPage() {
     }
   };
 
-  const copyToClipboard = async (text: string, id: string) => {
+  const copyToClipboard = async (text: string, replyId: string) => {
     await navigator.clipboard.writeText(text);
-    setCopiedId(id);
+    setCopiedId(replyId);
+    
+    // Track the selected reply
+    if (currentGenerationId) {
+      try {
+        await fetch("/api/history", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            generationId: currentGenerationId,
+            replyId: replyId,
+          }),
+        });
+      } catch (err) {
+        console.error("Error tracking reply selection:", err);
+      }
+    }
+    
     setTimeout(() => setCopiedId(null), 1500);
   };
 
@@ -224,6 +245,7 @@ export default function DashboardPage() {
     setComment("");
     setOriginalPost("");
     setLimitReached(false);
+    setCurrentGenerationId(null);
   };
 
   const loadFromHistory = (item: HistoryItem) => {
@@ -232,6 +254,7 @@ export default function DashboardPage() {
     setOriginalPost(item.originalPost || "");
     setSelectedTones(item.tones || ["helpful"]);
     setReplies(item.replies || []);
+    setCurrentGenerationId(item.id);
     setInputCollapsed(true);
     setShowHistory(false);
   };
@@ -325,25 +348,46 @@ export default function DashboardPage() {
                   history.map((item) => {
                     const ItemIcon = PLATFORM_ICONS[item.platform] || FaYoutube;
                     const itemConfig = PLATFORM_CONFIG[item.platform];
+                    const selectedReply = item.selectedReplyId 
+                      ? item.replies?.find(r => r.id === item.selectedReplyId)
+                      : null;
+                    
                     return (
                       <button
                         key={item.id}
                         onClick={() => loadFromHistory(item)}
                         className="w-full text-left p-4 rounded-xl bg-white/5 border border-white/10 hover:border-blue-500/30 hover:bg-white/10 transition-all"
                       >
-                        <div className="flex items-center gap-2 mb-2">
-                          <span style={{ color: itemConfig?.color }}>
-                            <ItemIcon className="text-lg" />
-                          </span>
-                          <span className="text-sm text-gray-400">{formatTimeAgo(item.createdAt)}</span>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span style={{ color: itemConfig?.color }}>
+                              <ItemIcon className="text-lg" />
+                            </span>
+                            <span className="text-sm text-gray-400">{formatTimeAgo(item.createdAt)}</span>
+                          </div>
+                          {selectedReply && (
+                            <span className="text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-400">
+                              Used
+                            </span>
+                          )}
                         </div>
-                        <p className="text-white text-sm line-clamp-2">{item.comment}</p>
+                        <p className="text-white text-sm line-clamp-2 mb-2">{item.comment}</p>
+                        {selectedReply && (
+                          <p className="text-gray-400 text-xs line-clamp-1 italic">
+                            → {selectedReply.text}
+                          </p>
+                        )}
                         <div className="flex gap-1 mt-2">
                           {item.tones?.slice(0, 3).map(tone => (
                             <span key={tone} className="px-2 py-0.5 rounded text-xs bg-white/10 text-gray-300">
                               {tone}
                             </span>
                           ))}
+                          {item.replies?.length > 0 && (
+                            <span className="px-2 py-0.5 rounded text-xs bg-blue-500/20 text-blue-300">
+                              {item.replies.length} replies
+                            </span>
+                          )}
                         </div>
                       </button>
                     );
@@ -604,7 +648,11 @@ export default function DashboardPage() {
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.1 }}
-                      className="p-5 rounded-2xl bg-white/5 border border-white/10 hover:border-blue-500/30 transition-all"
+                      className={`p-5 rounded-2xl bg-white/5 border transition-all ${
+                        copiedId === reply.id 
+                          ? "border-green-500/50 bg-green-500/5" 
+                          : "border-white/10 hover:border-blue-500/30"
+                      }`}
                     >
                       <div className="flex items-center justify-between mb-3">
                         <span className="px-3 py-1 rounded-lg bg-blue-500/20 text-blue-300 text-sm font-medium capitalize">
