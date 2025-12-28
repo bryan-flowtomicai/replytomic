@@ -7,6 +7,14 @@ const TIER_LIMITS = {
   agency: -1, // unlimited
 };
 
+// Table names (prefixed to avoid conflicts with existing tables)
+const TABLES = {
+  users: 'replytomic_users',
+  usage: 'replytomic_usage',
+  generations: 'replytomic_generations',
+  analytics: 'replytomic_analytics',
+};
+
 // Get current month in YYYY-MM format
 function getCurrentMonth(): string {
   const now = new Date();
@@ -45,7 +53,7 @@ export async function getOrCreateUser(clerkUserId: string, email?: string, name?
 
   // First try to find existing user
   const { data: existingUser, error: findError } = await supabase
-    .from('users')
+    .from(TABLES.users)
     .select('*')
     .eq('clerk_user_id', clerkUserId)
     .single();
@@ -56,7 +64,7 @@ export async function getOrCreateUser(clerkUserId: string, email?: string, name?
 
   // Create new user if not found
   const { data: newUser, error: createError } = await supabase
-    .from('users')
+    .from(TABLES.users)
     .insert({
       clerk_user_id: clerkUserId,
       email: email || '',
@@ -74,7 +82,7 @@ export async function getOrCreateUser(clerkUserId: string, email?: string, name?
 
   // Create initial analytics record
   await supabase
-    .from('analytics')
+    .from(TABLES.analytics)
     .insert({
       user_id: newUser.id,
       total_replies_generated: 0,
@@ -104,7 +112,7 @@ export async function getMonthlyUsage(userId: string) {
   }
 
   const { data, error } = await supabase
-    .from('usage')
+    .from(TABLES.usage)
     .select('*')
     .eq('user_id', userId)
     .eq('month', month)
@@ -159,7 +167,7 @@ export async function incrementUsage(userId: string, platform: string, repliesGe
   
   if (!usage || usage.reply_count === 0) {
     const { error } = await supabase
-      .from('usage')
+      .from(TABLES.usage)
       .insert({
         user_id: userId,
         month,
@@ -173,7 +181,7 @@ export async function incrementUsage(userId: string, platform: string, repliesGe
   platformsUsed[platform] = (platformsUsed[platform] || 0) + repliesGenerated;
 
   const { error } = await supabase
-    .from('usage')
+    .from(TABLES.usage)
     .upsert({
       user_id: userId,
       month,
@@ -200,7 +208,7 @@ export async function saveGeneration(
   if (!supabase) return { generation: null, error: null };
 
   const { data, error } = await supabase
-    .from('generations')
+    .from(TABLES.generations)
     .insert({
       user_id: userId,
       platform,
@@ -221,7 +229,7 @@ export async function getGenerationHistory(userId: string, limit: number = 20) {
   if (!supabase) return { generations: [], error: null };
 
   const { data, error } = await supabase
-    .from('generations')
+    .from(TABLES.generations)
     .select('*')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
@@ -230,13 +238,26 @@ export async function getGenerationHistory(userId: string, limit: number = 20) {
   return { generations: data || [], error };
 }
 
+// Update selected reply for a generation
+export async function updateSelectedReply(generationId: string, replyId: string) {
+  const supabase = checkSupabase();
+  if (!supabase) return { error: null };
+
+  const { error } = await supabase
+    .from(TABLES.generations)
+    .update({ selected_reply_id: replyId })
+    .eq('id', generationId);
+
+  return { error };
+}
+
 // Update analytics
 export async function updateAnalytics(userId: string, platform: string, tonesUsed: string[], repliesCount: number) {
   const supabase = checkSupabase();
   if (!supabase) return { error: null };
 
   const { data: analytics } = await supabase
-    .from('analytics')
+    .from(TABLES.analytics)
     .select('*')
     .eq('user_id', userId)
     .single();
@@ -252,7 +273,7 @@ export async function updateAnalytics(userId: string, platform: string, tonesUse
   const timeSaved = (analytics?.total_time_saved_minutes || 0) + (repliesCount * 2.5);
 
   const { error } = await supabase
-    .from('analytics')
+    .from(TABLES.analytics)
     .upsert({
       user_id: userId,
       total_replies_generated: (analytics?.total_replies_generated || 0) + repliesCount,
@@ -279,7 +300,7 @@ export async function getUserStats(userId: string) {
   }
 
   const [analyticsResult, usageResult] = await Promise.all([
-    supabase.from('analytics').select('*').eq('user_id', userId).single(),
+    supabase.from(TABLES.analytics).select('*').eq('user_id', userId).single(),
     getMonthlyUsage(userId),
   ]);
 
@@ -296,7 +317,7 @@ export async function updateUserTier(userId: string, tier: 'free' | 'creator_pro
   if (!supabase) return { error: null };
 
   const { error } = await supabase
-    .from('users')
+    .from(TABLES.users)
     .update({
       subscription_tier: tier,
       stripe_customer_id: stripeCustomerId,

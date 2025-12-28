@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth, currentUser } from "@clerk/nextjs/server";
-import { getOrCreateUser, getGenerationHistory } from "@/lib/db";
-import { getSupabaseAdmin } from "@/lib/supabase";
+import { getOrCreateUser, getGenerationHistory, updateSelectedReply } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
   try {
@@ -66,17 +65,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing generationId or replyId" }, { status: 400 });
     }
 
-    const supabase = getSupabaseAdmin();
-    if (!supabase) {
-      // Supabase not configured - just return success
-      return NextResponse.json({ success: true });
-    }
-
-    // Update the generation with selected reply
-    const { error } = await supabase
-      .from('generations')
-      .update({ selected_reply_id: replyId })
-      .eq('id', generationId);
+    const { error } = await updateSelectedReply(generationId, replyId);
 
     if (error) {
       console.error("Error updating selected reply:", error);
