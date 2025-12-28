@@ -13,7 +13,7 @@ import { SiTiktok } from "react-icons/si";
 import { FaDiscord } from "react-icons/fa6";
 import { Copy, Loader2 } from "lucide-react";
 
-const PLATFORM_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+const PLATFORM_ICONS: Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>> = {
   youtube: FaYoutube,
   instagram: FaInstagram,
   tiktok: SiTiktok,
@@ -142,7 +142,9 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-4">
-                  <PlatformIcon className="text-3xl" style={{ color: platformConfig.color }} />
+                  <span style={{ color: platformConfig.color }}>
+                    <PlatformIcon className="text-3xl" />
+                  </span>
                   <Select
                     value={platform}
                     onChange={(e) => setPlatform(e.target.value)}
