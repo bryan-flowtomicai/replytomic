@@ -1,3 +1,4 @@
+# ReplyTomic - AI Reply Generator
 # ReplyTomic - AI Reply Generator for Social Media
 
 Generate AI-powered replies for YouTube, Instagram, TikTok, Twitter, LinkedIn, Facebook, and Reddit. Save 10+ hours per week responding to comments.
