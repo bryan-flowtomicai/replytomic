@@ -326,24 +326,31 @@ export default function DashboardPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5 }}
             >
-              <Button
+              <button
                 onClick={handleGenerate}
                 disabled={loading || !comment.trim() || selectedTones.length === 0}
-                className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white text-lg py-6"
-                size="lg"
+                className="w-full h-16 rounded-xl font-bold text-lg text-white transition-all duration-300 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  background: loading || !comment.trim() || selectedTones.length === 0
+                    ? 'linear-gradient(to right, #1e40af, #0e7490)'
+                    : 'linear-gradient(to right, #2563eb, #06b6d4)',
+                  boxShadow: loading || !comment.trim() || selectedTones.length === 0
+                    ? 'none'
+                    : '0 4px 20px rgba(59, 130, 246, 0.4)',
+                }}
               >
                 {loading ? (
                   <>
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    <Loader2 className="h-6 w-6 animate-spin" />
                     {loadingMessage}
                   </>
                 ) : (
                   <>
-                    <Zap className="mr-2 h-5 w-5" />
+                    <Zap className="h-6 w-6" />
                     Generate Replies
                   </>
                 )}
-              </Button>
+              </button>
             </motion.div>
 
             {/* Results */}
