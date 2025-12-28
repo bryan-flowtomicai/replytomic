@@ -138,7 +138,7 @@ export default function DashboardPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Select Platform</CardTitle>
-                <CardDescription>Choose the platform you're replying on</CardDescription>
+                <CardDescription>Choose the platform you&apos;re replying on</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-4">
