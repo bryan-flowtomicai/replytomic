@@ -143,7 +143,7 @@ export default function DashboardPage() {
       <header className="sticky top-0 z-50 border-b border-white/10 bg-black/80 backdrop-blur-xl">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+            <div className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
               ReplyTomic
             </div>
             <div className="hidden md:block text-sm text-gray-400">
@@ -168,7 +168,7 @@ export default function DashboardPage() {
           animate={{ opacity: 1, y: 0 }}
           className="mb-12"
         >
-          <h1 className="text-5xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-white via-purple-200 to-blue-200 bg-clip-text text-transparent">
+          <h1 className="text-5xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-white via-blue-200 to-cyan-200 bg-clip-text text-transparent">
             AI Reply Generator
           </h1>
           <p className="text-xl text-gray-400">Generate platform-perfect replies in seconds</p>
@@ -307,7 +307,7 @@ export default function DashboardPage() {
                         variant={selectedTones.includes(tone.value) ? "default" : "outline"}
                         className={`cursor-pointer px-4 py-2 text-sm transition-all ${
                           selectedTones.includes(tone.value)
-                            ? "bg-gradient-to-r from-purple-500 to-blue-500 text-white border-0"
+                            ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white border-0"
                             : "border-white/30 text-gray-300 hover:border-white/50 hover:text-white"
                         }`}
                         onClick={() => toggleTone(tone.value)}
@@ -329,7 +329,7 @@ export default function DashboardPage() {
               <Button
                 onClick={handleGenerate}
                 disabled={loading || !comment.trim() || selectedTones.length === 0}
-                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white text-lg py-6"
+                className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white text-lg py-6"
                 size="lg"
               >
                 {loading ? (
@@ -356,7 +356,7 @@ export default function DashboardPage() {
                   className="space-y-4"
                 >
                   <h2 className="text-3xl font-bold flex items-center gap-2">
-                    <Sparkles className="w-6 h-6 text-purple-400" />
+                    <Sparkles className="w-6 h-6 text-blue-400" />
                     Generated Replies
                   </h2>
                   {replies.map((reply, index) => (
@@ -369,7 +369,7 @@ export default function DashboardPage() {
                       <Card className="border-white/10 bg-gradient-to-br from-white/5 to-white/0 backdrop-blur-sm hover:border-white/20 transition-all">
                         <CardContent className="pt-6">
                           <div className="flex items-start justify-between mb-4">
-                            <Badge className="bg-gradient-to-r from-purple-500 to-blue-500 text-white border-0">
+                            <Badge className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white border-0">
                               {reply.tone}
                             </Badge>
                             <span
@@ -426,15 +426,15 @@ export default function DashboardPage() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.2 }}
             >
-              <Card className="border-white/10 bg-gradient-to-br from-purple-500/10 to-blue-500/10 backdrop-blur-sm">
+              <Card className="border-white/10 bg-gradient-to-br from-blue-500/10 to-cyan-500/10 backdrop-blur-sm">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Zap className="w-5 h-5 text-purple-400" />
+                    <Zap className="w-5 h-5 text-blue-400" />
                     Usage
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-5xl font-bold mb-2 bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+                  <div className="text-5xl font-bold mb-2 bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
                     {usageRemaining === -1 ? "∞" : usageRemaining}
                   </div>
                   <p className="text-sm text-gray-400">
