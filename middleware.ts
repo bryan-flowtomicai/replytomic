@@ -6,10 +6,10 @@ const isPublicRoute = createRouteMatcher([
   "/sign-up(.*)",
 ]);
 
-// Fixed middleware for Clerk v5 - auth().protect() is the correct syntax
-export default clerkMiddleware((auth, req) => {
+// Fixed middleware for Clerk v5 - must be async to use protect()
+export default clerkMiddleware(async (auth, req) => {
   if (!isPublicRoute(req)) {
-    auth().protect();
+    await auth().protect();
   }
 });
 
