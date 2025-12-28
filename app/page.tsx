@@ -17,6 +17,7 @@ export default function Home() {
 
   useEffect(() => {
     setIsTyping(true);
+    setDemoReply("");
     let index = 0;
     const interval = setInterval(() => {
       if (index < demoReplyText.length) {
@@ -29,7 +30,7 @@ export default function Home() {
     }, 30);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [demoReplyText]);
 
   return (
     <div className="min-h-screen bg-black text-white overflow-hidden relative">
