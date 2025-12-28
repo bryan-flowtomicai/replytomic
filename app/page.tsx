@@ -33,6 +33,13 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Simple fade-in animation - only runs once, starts visible
+  const fadeIn = {
+    initial: { opacity: 0.8, y: 10 },
+    animate: { opacity: 1, y: 0 },
+    transition: { duration: 0.4, ease: "easeOut" }
+  };
+
   return (
     <div className="min-h-screen bg-black text-white overflow-hidden relative">
       {/* Background effects - blue/cyan gradient */}
@@ -64,7 +71,7 @@ export default function Home() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
+            transition={{ duration: 0.5 }}
             className="text-center"
           >
             <div className="inline-block mb-6 px-4 py-2 rounded-full border border-white/30 bg-white/10 backdrop-blur-sm">
@@ -97,9 +104,9 @@ export default function Home() {
               ].map(({ Icon, color }, i) => (
                 <motion.div
                   key={i}
-                  initial={{ opacity: 0, scale: 0 }}
+                  initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: i * 0.1, duration: 0.3 }}
+                  transition={{ delay: 0.3 + i * 0.05, duration: 0.3 }}
                   className="w-12 h-12 rounded-lg border border-white/20 bg-white/5 backdrop-blur-sm flex items-center justify-center hover:border-white/40 hover:bg-white/10 transition-all cursor-pointer"
                   style={{ color }}
                 >
@@ -144,25 +151,14 @@ export default function Home() {
       {/* Interactive Demo Section */}
       <section className="py-20 px-4 border-y border-white/10">
         <div className="container mx-auto max-w-4xl">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-12"
-          >
+          <div className="text-center mb-12">
             <h2 className="text-4xl md:text-5xl font-bold mb-4 text-white">See It In Action</h2>
             <p className="text-gray-300 text-lg">Watch AI craft the perfect reply in real-time</p>
-          </motion.div>
+          </div>
 
           <div className="grid md:grid-cols-2 gap-6">
             {/* Before - Bad Reply */}
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              className="p-6 rounded-xl border border-red-500/30 bg-red-500/10"
-            >
+            <div className="p-6 rounded-xl border border-red-500/30 bg-red-500/10">
               <div className="text-sm text-red-400 mb-3 font-semibold">❌ Generic Bot Reply</div>
               <div className="text-white mb-4 p-4 bg-black/50 rounded-lg border border-white/10">
                 &quot;{demoComment}&quot;
@@ -170,15 +166,10 @@ export default function Home() {
               <div className="text-gray-400 italic">
                 &quot;Thanks for the comment! Check out our website for more info.&quot;
               </div>
-            </motion.div>
+            </div>
 
             {/* After - ReplyTomic Reply */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              className="p-6 rounded-xl border border-green-500/30 bg-green-500/10"
-            >
+            <div className="p-6 rounded-xl border border-green-500/30 bg-green-500/10">
               <div className="text-sm text-green-400 mb-3 font-semibold">✨ ReplyTomic Optimized</div>
               <div className="text-white mb-4 p-4 bg-black/50 rounded-lg border border-white/10">
                 &quot;{demoComment}&quot;
@@ -187,7 +178,7 @@ export default function Home() {
                 &quot;{demoReply}
                 {isTyping && <span className="inline-block w-2 h-5 bg-cyan-400 ml-1 animate-pulse" />}&quot;
               </div>
-            </motion.div>
+            </div>
           </div>
         </div>
       </section>
@@ -195,24 +186,14 @@ export default function Home() {
       {/* Bento Grid Features */}
       <section className="py-20 px-4">
         <div className="container mx-auto max-w-7xl">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
+          <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold mb-4 text-white">Powerful Features</h2>
             <p className="text-gray-300 text-lg">Everything you need to dominate social media</p>
-          </motion.div>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 auto-rows-fr">
             {/* Large Feature Card - Auto Detection */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              className="md:col-span-2 p-8 rounded-xl border border-white/10 bg-gradient-to-br from-blue-500/10 to-cyan-500/10 hover:border-blue-500/30 transition-all group"
-            >
+            <div className="md:col-span-2 p-8 rounded-xl border border-white/10 bg-gradient-to-br from-blue-500/10 to-cyan-500/10 hover:border-blue-500/30 transition-all group">
               <div className="flex items-center gap-4 mb-4">
                 <div className="w-12 h-12 rounded-lg bg-blue-500/20 border border-blue-500/30 flex items-center justify-center">
                   <Zap className="w-6 h-6 text-blue-400" />
@@ -222,15 +203,10 @@ export default function Home() {
               <p className="text-gray-300 text-lg">
                 Smart platform detection automatically optimizes your replies for each social network&apos;s unique style and character limits.
               </p>
-            </motion.div>
+            </div>
 
             {/* Tone Control */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              className="p-8 rounded-xl border border-white/10 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 hover:border-cyan-500/30 transition-all group"
-            >
+            <div className="p-8 rounded-xl border border-white/10 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 hover:border-cyan-500/30 transition-all group">
               <div className="flex items-center gap-4 mb-4">
                 <div className="w-12 h-12 rounded-lg bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center">
                   <Settings className="w-6 h-6 text-cyan-400" />
@@ -240,15 +216,10 @@ export default function Home() {
               <p className="text-gray-300">
                 Switch between &quot;Helpful Expert&quot;, &quot;Casual Friend&quot;, or &quot;Direct Professional&quot; to match your brand voice.
               </p>
-            </motion.div>
+            </div>
 
             {/* Anti-Ban Protection */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              className="p-8 rounded-xl border border-white/10 bg-gradient-to-br from-green-500/10 to-emerald-500/10 hover:border-green-500/30 transition-all group"
-            >
+            <div className="p-8 rounded-xl border border-white/10 bg-gradient-to-br from-green-500/10 to-emerald-500/10 hover:border-green-500/30 transition-all group">
               <div className="flex items-center gap-4 mb-4">
                 <div className="w-12 h-12 rounded-lg bg-green-500/20 border border-green-500/30 flex items-center justify-center">
                   <Shield className="w-6 h-6 text-green-400" />
@@ -258,15 +229,10 @@ export default function Home() {
               <p className="text-gray-300">
                 Human-emulation mode keeps your replies natural and authentic, staying under the radar of platform algorithms.
               </p>
-            </motion.div>
+            </div>
 
             {/* Platform Optimization */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              className="p-8 rounded-xl border border-white/10 bg-gradient-to-br from-blue-500/10 to-cyan-500/10 hover:border-blue-500/30 transition-all group"
-            >
+            <div className="p-8 rounded-xl border border-white/10 bg-gradient-to-br from-blue-500/10 to-cyan-500/10 hover:border-blue-500/30 transition-all group">
               <div className="flex items-center gap-4 mb-4">
                 <div className="w-12 h-12 rounded-lg bg-blue-500/20 border border-blue-500/30 flex items-center justify-center">
                   <Sparkles className="w-6 h-6 text-blue-400" />
@@ -276,15 +242,10 @@ export default function Home() {
               <p className="text-gray-300">
                 Each platform gets optimized replies - Instagram gets emoji-heavy casual, LinkedIn gets professional insights.
               </p>
-            </motion.div>
+            </div>
 
             {/* Speed & Scale */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              className="md:col-span-2 p-8 rounded-xl border border-white/10 bg-gradient-to-br from-orange-500/10 to-amber-500/10 hover:border-orange-500/30 transition-all group"
-            >
+            <div className="md:col-span-2 p-8 rounded-xl border border-white/10 bg-gradient-to-br from-orange-500/10 to-amber-500/10 hover:border-orange-500/30 transition-all group">
               <div className="flex items-center gap-4 mb-4">
                 <div className="w-12 h-12 rounded-lg bg-orange-500/20 border border-orange-500/30 flex items-center justify-center">
                   <Zap className="w-6 h-6 text-orange-400" />
@@ -294,7 +255,7 @@ export default function Home() {
               <p className="text-gray-300 text-lg">
                 Generate 5 perfect replies in 15 seconds. Reply to 100 comments in 30 minutes instead of spending hours manually crafting responses.
               </p>
-            </motion.div>
+            </div>
           </div>
         </div>
       </section>
@@ -302,24 +263,14 @@ export default function Home() {
       {/* Pricing Section */}
       <section className="py-20 px-4 border-y border-white/10">
         <div className="container mx-auto max-w-6xl">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
+          <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold mb-4 text-white">Simple Pricing</h2>
             <p className="text-gray-300 text-lg">Start free, upgrade when you&apos;re ready to scale</p>
-          </motion.div>
+          </div>
 
           <div className="grid md:grid-cols-3 gap-6">
             {/* Starter */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="p-8 rounded-xl border border-white/10 bg-white/5 hover:border-white/20 transition-all"
-            >
+            <div className="p-8 rounded-xl border border-white/10 bg-white/5 hover:border-white/20 transition-all">
               <h3 className="text-2xl font-bold mb-2 text-white">Starter</h3>
               <div className="text-4xl font-bold mb-4 text-white">
                 $19<span className="text-lg text-gray-400">/mo</span>
@@ -347,16 +298,10 @@ export default function Home() {
                   Get Started
                 </Button>
               </Link>
-            </motion.div>
+            </div>
 
             {/* Pro - Featured */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.1 }}
-              className="p-8 rounded-xl border-2 border-blue-500 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 relative"
-            >
+            <div className="p-8 rounded-xl border-2 border-blue-500 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 relative">
               <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-4 py-1 rounded-full text-sm font-bold">
                 Most Popular
               </div>
@@ -391,16 +336,10 @@ export default function Home() {
                   Upgrade to Pro
                 </Button>
               </Link>
-            </motion.div>
+            </div>
 
             {/* Free */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.2 }}
-              className="p-8 rounded-xl border border-white/10 bg-white/5 hover:border-white/20 transition-all"
-            >
+            <div className="p-8 rounded-xl border border-white/10 bg-white/5 hover:border-white/20 transition-all">
               <h3 className="text-2xl font-bold mb-2 text-white">Free</h3>
               <div className="text-4xl font-bold mb-4 text-white">
                 $0<span className="text-lg text-gray-400">/mo</span>
@@ -424,7 +363,7 @@ export default function Home() {
                   Try Free
                 </Button>
               </Link>
-            </motion.div>
+            </div>
           </div>
         </div>
       </section>
@@ -432,24 +371,18 @@ export default function Home() {
       {/* CTA Section */}
       <section className="py-20 px-4">
         <div className="container mx-auto max-w-4xl text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-          >
-            <h2 className="text-4xl md:text-5xl font-bold mb-6 text-white">
-              Ready to Save 10+ Hours Per Week?
-            </h2>
-            <p className="text-gray-300 text-xl mb-8">
-              Join 500+ creators who are already using ReplyTomic to scale their social media presence
-            </p>
-            <Link href="/sign-up">
-              <Button size="lg" className="bg-white text-black hover:bg-gray-200 text-lg px-8 py-6 font-semibold">
-                Start Free Trial
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
-            </Link>
-          </motion.div>
+          <h2 className="text-4xl md:text-5xl font-bold mb-6 text-white">
+            Ready to Save 10+ Hours Per Week?
+          </h2>
+          <p className="text-gray-300 text-xl mb-8">
+            Join 500+ creators who are already using ReplyTomic to scale their social media presence
+          </p>
+          <Link href="/sign-up">
+            <Button size="lg" className="bg-white text-black hover:bg-gray-200 text-lg px-8 py-6 font-semibold">
+              Start Free Trial
+              <ArrowRight className="ml-2 h-5 w-5" />
+            </Button>
+          </Link>
         </div>
       </section>
 
