@@ -80,4 +80,24 @@
   .text-balance {
     text-wrap: balance;
   }
+}/* CSS fix for visibility */
+
+/* Fix select dropdown and form element visibility in dark mode */
+select {
+  color: white !important;
+  background-color: rgba(0, 0, 0, 0.5) !important;
+}
+
+select option {
+  background-color: rgb(0, 0, 0) !important;
+  color: white !important;
+}
+
+/* Ensure textareas have visible text */
+textarea {
+  color: white !important;
+}
+
+textarea::placeholder {
+  color: rgb(156, 163, 175) !important; /* gray-400 */
 }
