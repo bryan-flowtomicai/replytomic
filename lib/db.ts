@@ -1,4 +1,4 @@
-import { supabaseAdmin } from './supabase';
+import { getSupabaseAdmin } from './supabase';
 
 // Tier limits
 const TIER_LIMITS = {
@@ -13,10 +13,38 @@ function getCurrentMonth(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
+// Check if Supabase is configured
+function checkSupabase() {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) {
+    console.warn('Supabase not configured - database operations will be skipped');
+    return null;
+  }
+  return supabase;
+}
+
 // Get or create user by Clerk ID
 export async function getOrCreateUser(clerkUserId: string, email?: string, name?: string) {
+  const supabase = checkSupabase();
+  
+  // If Supabase is not configured, return a mock user for development
+  if (!supabase) {
+    return { 
+      user: {
+        id: 'dev-user-id',
+        clerk_user_id: clerkUserId,
+        email: email || '',
+        name: name || '',
+        subscription_tier: 'free',
+        subscription_status: 'active',
+        onboarding_completed: false,
+      }, 
+      error: null 
+    };
+  }
+
   // First try to find existing user
-  const { data: existingUser, error: findError } = await supabaseAdmin
+  const { data: existingUser, error: findError } = await supabase
     .from('users')
     .select('*')
     .eq('clerk_user_id', clerkUserId)
@@ -27,7 +55,7 @@ export async function getOrCreateUser(clerkUserId: string, email?: string, name?
   }
 
   // Create new user if not found
-  const { data: newUser, error: createError } = await supabaseAdmin
+  const { data: newUser, error: createError } = await supabase
     .from('users')
     .insert({
       clerk_user_id: clerkUserId,
@@ -45,7 +73,7 @@ export async function getOrCreateUser(clerkUserId: string, email?: string, name?
   }
 
   // Create initial analytics record
-  await supabaseAdmin
+  await supabase
     .from('analytics')
     .insert({
       user_id: newUser.id,
@@ -60,9 +88,22 @@ export async function getOrCreateUser(clerkUserId: string, email?: string, name?
 
 // Get user's usage for current month
 export async function getMonthlyUsage(userId: string) {
+  const supabase = checkSupabase();
   const month = getCurrentMonth();
+  
+  if (!supabase) {
+    return {
+      usage: {
+        user_id: userId,
+        month,
+        reply_count: 0,
+        platforms_used: {},
+      },
+      error: null,
+    };
+  }
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await supabase
     .from('usage')
     .select('*')
     .eq('user_id', userId)
@@ -110,11 +151,14 @@ export async function canUserGenerate(userId: string, tier: string): Promise<{ c
 
 // Increment usage count
 export async function incrementUsage(userId: string, platform: string, repliesGenerated: number = 5) {
+  const supabase = checkSupabase();
+  if (!supabase) return { error: null };
+  
   const month = getCurrentMonth();
   const { usage } = await getMonthlyUsage(userId);
   
-  if (!usage) {
-    const { error } = await supabaseAdmin
+  if (!usage || usage.reply_count === 0) {
+    const { error } = await supabase
       .from('usage')
       .insert({
         user_id: userId,
@@ -128,7 +172,7 @@ export async function incrementUsage(userId: string, platform: string, repliesGe
   const platformsUsed = usage.platforms_used || {};
   platformsUsed[platform] = (platformsUsed[platform] || 0) + repliesGenerated;
 
-  const { error } = await supabaseAdmin
+  const { error } = await supabase
     .from('usage')
     .upsert({
       user_id: userId,
@@ -152,7 +196,10 @@ export async function saveGeneration(
   tonesRequested: string[],
   replies: any[]
 ) {
-  const { data, error } = await supabaseAdmin
+  const supabase = checkSupabase();
+  if (!supabase) return { generation: null, error: null };
+
+  const { data, error } = await supabase
     .from('generations')
     .insert({
       user_id: userId,
@@ -170,7 +217,10 @@ export async function saveGeneration(
 
 // Get user's generation history
 export async function getGenerationHistory(userId: string, limit: number = 20) {
-  const { data, error } = await supabaseAdmin
+  const supabase = checkSupabase();
+  if (!supabase) return { generations: [], error: null };
+
+  const { data, error } = await supabase
     .from('generations')
     .select('*')
     .eq('user_id', userId)
@@ -182,7 +232,10 @@ export async function getGenerationHistory(userId: string, limit: number = 20) {
 
 // Update analytics
 export async function updateAnalytics(userId: string, platform: string, tonesUsed: string[], repliesCount: number) {
-  const { data: analytics } = await supabaseAdmin
+  const supabase = checkSupabase();
+  if (!supabase) return { error: null };
+
+  const { data: analytics } = await supabase
     .from('analytics')
     .select('*')
     .eq('user_id', userId)
@@ -198,7 +251,7 @@ export async function updateAnalytics(userId: string, platform: string, tonesUse
 
   const timeSaved = (analytics?.total_time_saved_minutes || 0) + (repliesCount * 2.5);
 
-  const { error } = await supabaseAdmin
+  const { error } = await supabase
     .from('analytics')
     .upsert({
       user_id: userId,
@@ -216,8 +269,17 @@ export async function updateAnalytics(userId: string, platform: string, tonesUse
 
 // Get user analytics/stats
 export async function getUserStats(userId: string) {
+  const supabase = checkSupabase();
+  if (!supabase) {
+    return {
+      analytics: null,
+      usage: { reply_count: 0, platforms_used: {} },
+      error: null,
+    };
+  }
+
   const [analyticsResult, usageResult] = await Promise.all([
-    supabaseAdmin.from('analytics').select('*').eq('user_id', userId).single(),
+    supabase.from('analytics').select('*').eq('user_id', userId).single(),
     getMonthlyUsage(userId),
   ]);
 
@@ -230,7 +292,10 @@ export async function getUserStats(userId: string) {
 
 // Update user subscription tier
 export async function updateUserTier(userId: string, tier: 'free' | 'creator_pro' | 'agency', stripeCustomerId?: string) {
-  const { error } = await supabaseAdmin
+  const supabase = checkSupabase();
+  if (!supabase) return { error: null };
+
+  const { error } = await supabase
     .from('users')
     .update({
       subscription_tier: tier,
