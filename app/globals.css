@@ -3,54 +3,28 @@
 @tailwind utilities;
 
 @layer base {
+  /* Since our app is always dark mode, set root variables for dark theme */
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 262.1 83.3% 57.8%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 262.1 83.3% 57.8%;
-    --radius: 0.5rem;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-  }
-
-  .dark {
     --background: 0 0% 0%;
     --foreground: 0 0% 100%;
-    --card: 0 0% 0%;
+    --card: 0 0% 5%;
     --card-foreground: 0 0% 100%;
-    --popover: 0 0% 0%;
+    --popover: 0 0% 5%;
     --popover-foreground: 0 0% 100%;
-    --primary: 262.1 83.3% 57.8%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 0 0% 10%;
+    --primary: 199 89% 48%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 15%;
     --secondary-foreground: 0 0% 100%;
-    --muted: 0 0% 10%;
-    --muted-foreground: 0 0% 60%;
-    --accent: 0 0% 10%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 65%;
+    --accent: 0 0% 15%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 0 0% 100%;
     --border: 0 0% 20%;
     --input: 0 0% 20%;
-    --ring: 262.1 83.3% 57.8%;
+    --ring: 199 89% 48%;
+    --radius: 0.5rem;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
@@ -63,6 +37,11 @@
   * {
     @apply border-border;
   }
+  
+  html {
+    color-scheme: dark;
+  }
+  
   body {
     @apply bg-black text-white;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
@@ -71,8 +50,13 @@
   }
   
   h1, h2, h3, h4, h5, h6 {
+    @apply text-white;
     font-weight: 700;
     letter-spacing: -0.02em;
+  }
+  
+  p {
+    @apply text-gray-300;
   }
 }
 
@@ -80,12 +64,22 @@
   .text-balance {
     text-wrap: balance;
   }
-}/* CSS fix for visibility */
+}
 
-/* Fix select dropdown and form element visibility in dark mode */
-select {
+/* ===== COMPREHENSIVE DARK MODE FIXES ===== */
+
+/* Fix all text to be white by default */
+* {
+  color: inherit;
+}
+
+/* Form elements - ensure white text */
+select,
+textarea,
+input {
   color: white !important;
   background-color: rgba(0, 0, 0, 0.5) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
 }
 
 select option {
@@ -93,18 +87,14 @@ select option {
   color: white !important;
 }
 
-/* Ensure textareas have visible text */
-textarea {
-  color: white !important;
+textarea::placeholder,
+input::placeholder {
+  color: rgb(156, 163, 175) !important;
 }
 
-textarea::placeholder {
-  color: rgb(156, 163, 175) !important; /* gray-400 */
-}
-
-/* Fix text selection color - make selected text visible */
+/* Text selection */
 ::selection {
-  background-color: rgba(59, 130, 246, 0.5) !important; /* blue-500 with opacity */
+  background-color: rgba(59, 130, 246, 0.5) !important;
   color: white !important;
 }
 
@@ -113,7 +103,7 @@ textarea::placeholder {
   color: white !important;
 }
 
-/* Fix focus states for form elements */
+/* Focus states */
 textarea:focus,
 input:focus,
 select:focus {
@@ -121,10 +111,38 @@ select:focus {
   background-color: rgba(0, 0, 0, 0.7) !important;
   outline: 2px solid rgba(59, 130, 246, 0.5) !important;
   outline-offset: 2px !important;
+  border-color: rgba(59, 130, 246, 0.5) !important;
 }
 
-/* Ensure all text in form elements is white when typing */
-textarea:not(:placeholder-shown),
-input:not(:placeholder-shown) {
-  color: white !important;
+/* Buttons - fix outline and ghost variants */
+button {
+  color: white;
+}
+
+/* Card components */
+[class*="card"] {
+  color: white;
+}
+
+/* Badge fix */
+[class*="badge"] {
+  color: white;
+}
+
+/* Links */
+a {
+  color: rgb(96, 165, 250); /* blue-400 */
+}
+
+a:hover {
+  color: rgb(147, 197, 253); /* blue-300 */
+}
+
+/* Disabled states */
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
